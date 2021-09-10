@@ -1,7 +1,0 @@
-# DataScienceProjects
-
-
-
-
-
-Data Science Knowledge 
