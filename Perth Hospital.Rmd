@@ -1,0 +1,454 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+install.packages("rnoaa")
+install.packages("tidyverse")
+install.packages("mgcv")
+install.packages("zoo")
+install.packages("lubridate")
+```
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(broom)
+library(mgcv)
+library(zoo)
+library(rnoaa)
+```
+```{r}
+#Task1
+precip <- ncdc(datasetid='GHCND',
+            stationid='GHCND:ASN00009021', 
+            datatypeid='PRCP', 
+            startdate = '2013-07-01', 
+            enddate = '2014-06-30', 
+            limit=500,
+            token =  "orliGfJVnxsLmzZNVgqErcvObvxgGosH")
+dailyt <- ncdc(datasetid='GHCND',
+            stationid='GHCND:ASN00009021', 
+            datatypeid='TAVG', 
+            startdate = '2013-07-01', 
+            enddate = '2014-06-30', 
+            limit=500,
+            token =  "orliGfJVnxsLmzZNVgqErcvObvxgGosH")
+precipitation <-precip$data
+dailytemp <-dailyt$data
+```
+```{r}
+nrow(precipitation)
+ncol(precipitation)
+nrow(dailytemp)
+ncol(dailytemp)
+```
+
+```{r}
+#task 3.1
+ed_data_link <- 'govhack3.csv' # needs govhack3 in working directory
+top_row <- read_csv(ed_data_link, col_names = FALSE, n_max = 1)
+second_row <- read_csv(ed_data_link, n_max = 1)
+
+column_names <- second_row %>% 
+  unlist(., use.names=FALSE) %>% 
+  make.unique(., sep = "__") # double underscore
+
+column_names[2:8] <- str_c(column_names[2:8], '0', sep='__')
+
+daily_attendance <- read_csv(ed_data_link, skip = 2, col_names = column_names)
+
+(
+  facilities <- top_row %>% 
+    unlist(., use.names=FALSE) %>% 
+    na.omit()
+)
+
+daily_attendance <- daily_attendance %>% 
+  gather(key = index, 
+         value = value, 
+         -Date) 
+
+
+
+daily_attendance2 <- daily_attendance %>% 
+  separate(index, 
+           into = c("index", 
+                    "facility_id"), 
+           sep="__", 
+           remove=TRUE) %>% 
+  mutate(facility_id = 
+           as.numeric(facility_id) + 1) %>% 
+  mutate(facility_name = 
+           facilities[facility_id])
+
+daily_attendance3 <- daily_attendance2[c(1,2,4,5)]
+
+
+daily_attendance4 <- daily_attendance3 %>% 
+  mutate(value = 
+           as.numeric(value)) %>% 
+  replace_na(replace = 
+               list(value = 0))
+
+daily_attendance5 <- daily_attendance4 %>% 
+  spread(index, 
+         value)
+daily_attendance5 <- daily_attendance5 %>% 
+  mutate(Date = dmy(Date)) 
+
+selected_hospital <- 'Swan District Hospital'
+
+one_hospital <- daily_attendance5 %>%
+  filter(facility_name == selected_hospital) %>% 
+   arrange(Date)
+
+one_hospital %>% 
+  summarise(total_admission = sum(Admissions), 
+            total_attendance = sum(Attendance))
+```
+```{r}
+min(one_hospital$Date, na.rm = TRUE)
+max(one_hospital$Date, na.rm = TRUE)
+```
+
+```{r}
+one_hospital %>% 
+  ggplot(aes(x = Date, 
+             y = Attendance)) +
+  geom_point() +
+  geom_smooth(method = 'lm')
+```
+
+```{r}
+#task3.2
+lmfit <- lm(Attendance ~ Date, 
+            data = one_hospital)
+
+lmfit %>% 
+  summary
+
+lmfit %>% 
+  tidy
+
+(
+  results <- lmfit %>% 
+    augment
+)
+
+lmfit %>% 
+  glance
+AIC(lmfit)
+```
+
+```{r}
+#task3.2
+results %>% 
+  ggplot(aes(sample = .std.resid)) +
+  geom_qq() + 
+  geom_qq_line(col = 'steelblue')
+
+results %>% 
+  ggplot(aes(x = .fitted, y = .resid)) +
+  geom_point() + 
+  geom_quantile() +
+  geom_smooth(colour = 'firebrick')
+
+results %>% 
+  ggplot(aes(x = Date, y = .resid)) +
+  geom_point() + 
+  geom_quantile() +
+  geom_smooth(colour = 'firebrick') 
+```
+
+```{r}
+#task3.2
+results %>% 
+  ggplot(aes(x = .hat, y = .resid)) +
+  geom_point() + 
+  geom_hline(yintercept = 0,
+             linetype = 'dotted')
+results %>% 
+  mutate(big_hat = .hat > 0.01) %>% 
+  ggplot(aes(x = .hat, y = .cooksd)) +
+  geom_point(aes(color = big_hat)) + 
+  geom_hline(yintercept = 0,
+             linetype = 'dotted')
+```
+
+```{r}
+#task3.3
+gam1 <- gam(Attendance ~ s(as.numeric(Date)),
+           family=poisson(link=log),
+           data=one_hospital)
+```
+
+
+```{r}
+#task3.3
+gam1  
+summary(gam1)
+gam.check(gam1)
+AIC(gam1)
+
+```
+
+```{r}
+#task3.3
+plot(gam1)
+```
+
+```{r}
+#task3.4
+one_hospital1 <- one_hospital
+one_hospital1 <- one_hospital %>%
+  mutate(weekday = weekdays(one_hospital1$Date))
+```
+
+
+
+
+
+```{r}
+
+gam3 <- gam(Attendance ~ weekday + s(as.numeric(Date)),
+           family=poisson(link=log),
+           data=one_hospital1)
+plot(gam3)
+summary(gam3)
+gam.check(gam3)
+
+```
+```{r}
+#task3.5
+AIC(gam1)
+AIC(gam3)
+```
+
+```{r}
+#task4.1
+# max is 365 days take 2 calls
+out1 <- ncdc(datasetid='GHCND',
+            stationid='GHCND:ASN00009021',
+            datatypeid='TAVG',
+            startdate = '2013-06-01', 
+            enddate = '2014-06-29', 
+            limit=500,
+            token =  "orliGfJVnxsLmzZNVgqErcvObvxgGosH")
+out2 <- ncdc(datasetid='GHCND',
+            stationid='GHCND:ASN00009021',
+            datatypeid='TAVG',
+            startdate = '2014-06-30',
+            enddate = '2014-07-05', 
+            limit=500,
+            token =  "orliGfJVnxsLmzZNVgqErcvObvxgGosH")
+out3 <- rbind(out1$data,out2$data)
+```
+
+```{r}
+# 1971,10972 missing, multiple other days missing aswell from other years
+start <- c('1973-01-01','1974-01-01','1975-01-01','1976-01-01','1977-01-01','1978-01-01','1979-01-01','1980-01-01',
+           '1981-01-01','1982-01-01','1983-01-01','1984-01-01','1985-01-01','1986-01-01','1987-01-01','1988-01-01','1989-01-01','1990-01-01',
+           '1991-01-01','1992-01-01','1993-01-01','1994-01-01','1995-01-01','1996-01-01','1997-01-01','1998-01-01','1999-01-01','2000-01-01')
+enddate <- c('1973-12-31','1974-12-31','1975-12-31','1976-12-31','1977-12-31','1978-12-31','1979-12-31','1980-12-31',
+           '1981-12-31','1982-12-31','1983-12-31','1984-12-31','1985-12-31','1986-12-31','1987-12-31','1988-12-31','1989-12-31','1990-12-31',
+           '1991-12-31','1992-12-31','1993-12-31','1994-12-31','1995-12-31','1996-12-31','1997-12-31','1998-12-31','1999-12-31','2000-12-31')
+```
+
+
+```{r}
+# for loop calling all the years takes ~ 2 mins percentile 95%
+datalist = list()
+for (i in 1:28) {
+    # ... make some data
+    dat <- ncdc(datasetid='GHCND',
+            stationid='GHCND:ASN00009021',
+            datatypeid='TAVG',
+            startdate = start[i], 
+            enddate = enddate[i], 
+            limit=500,
+            token =  "orliGfJVnxsLmzZNVgqErcvObvxgGosH")
+    
+    datalist[[i]] <- dat$data 
+}
+
+big_data = do.call(rbind, datalist)
+```
+```{r}
+NineFivePercentile <- quantile(big_data$value, probs =0.95)/10
+print(NineFivePercentile)
+```
+
+
+
+```{r}
+#task4.1
+
+averagetempdata <- out3
+averagetempdata <- averagetempdata %>%
+  separate(col = "date",
+           into = c("Date", "time"),
+           sep = "T")
+```
+```{r}
+#task4.1
+averagetemp <- averagetempdata %>%
+  mutate(avgtemp = value/10) %>%
+  mutate(Date = as.Date(Date, "%Y-%m-%d")) %>%
+  arrange(Date)%>%
+  mutate(DMT = rollmean(avgtemp, k = 3, align = "right", fill = NA)) %>%
+  mutate(DMT30 = rollmean(avgtemp, k = 30, align = "right", fill = NA))%>%
+  mutate(EHIsig = DMT - NineFivePercentile) %>%
+  mutate(EHIaccl = DMT - DMT30)%>%
+  mutate(EHF = ifelse(EHIaccl>1,EHIsig*EHIaccl,EHIsig))
+
+averagetemp <- averagetemp[-c(1:30), ]
+newaveragetemp <- head(averagetemp, - 5)
+```
+
+
+```{r}
+newaveragetemp %>% 
+  ggplot(aes(x = Date, 
+             y = EHF)) +
+  geom_point()
+  
+```
+```{r}
+one_hospital2 <- one_hospital1 %>%
+  mutate(EHF = newaveragetemp$EHF)
+```
+
+```{r}
+#4.2
+
+gam2 <- gam(Attendance ~ s(EHF) + weekday + s(as.numeric(Date)),
+           family=poisson(link=log),
+           data=one_hospital2)
+```
+```{r}
+plot(gam2)
+summary(gam2)
+gam.check(gam2)
+
+```
+
+```{r}
+AIC(gam2)
+```
+```{r}
+#4.3
+one_hospital2 <- one_hospital2 %>%
+  mutate(PRCP = precipitation$value)
+```
+
+```{r}
+#4.3
+
+gam4 <- gam(Attendance ~ s(PRCP) + s(EHF) + weekday + s(as.numeric(Date)),
+           family=poisson(link=log),
+           data=one_hospital2)
+```
+
+```{r}
+plot(gam4)
+summary(gam4)
+gam.check(gam4)
+AIC(gam4)
+
+```
+```{r}
+maxt <- ncdc(datasetid='GHCND',
+            stationid='GHCND:ASN00009021', 
+            datatypeid='TMAX', 
+            startdate = '2013-07-01', 
+            enddate = '2014-06-30', 
+            limit=500,
+            token =  "orliGfJVnxsLmzZNVgqErcvObvxgGosH")
+mint <- ncdc(datasetid='GHCND',
+            stationid='GHCND:ASN00009021', 
+            datatypeid='TMIN', 
+            startdate = '2013-07-01', 
+            enddate = '2014-06-30', 
+            limit=500,
+            token =  "orliGfJVnxsLmzZNVgqErcvObvxgGosH")
+
+maxtemp <-maxt$data
+mintemp <-mint$data
+```
+
+
+```{r}
+one_hospital2 <- one_hospital2 %>%
+  mutate(MAXT = maxtemp$value/10) %>%
+  mutate(MINT = mintemp$value/10)%>%
+  mutate(Trange = MAXT-MINT)%>%
+  mutate(DMT = newaveragetemp$DMT)
+
+
+```
+
+```{r}
+#4.3
+
+gam5 <- gam(Attendance ~ s(MAXT) + s(EHF) + weekday + s(as.numeric(Date)),
+           family=poisson(link=log),
+           data=one_hospital2)
+```
+
+```{r}
+plot(gam5)
+summary(gam5)
+gam.check(gam5)
+AIC(gam5)
+
+```
+
+```{r}
+#4.3
+
+gam6 <- gam(Attendance ~ s(MINT) + s(EHF) + weekday + s(as.numeric(Date)),
+           family=poisson(link=log),
+           data=one_hospital2)
+```
+
+```{r}
+plot(gam6)
+summary(gam6)
+gam.check(gam6)
+AIC(gam6)
+
+```
+
+```{r}
+#4.3
+
+gam7 <- gam(Attendance ~ s(Trange) + s(EHF) + weekday + s(as.numeric(Date)),
+           family=poisson(link=log),
+           data=one_hospital2)
+```
+
+```{r}
+plot(gam7)
+summary(gam7)
+gam.check(gam7)
+AIC(gam7)
+
+```
+
+```{r}
+#4.3
+
+gam8 <- gam(Attendance ~ s(DMT) + s(EHF) + weekday + s(as.numeric(Date)),
+           family=poisson(link=log),
+           data=one_hospital2)
+```
+
+```{r}
+plot(gam8)
+summary(gam8)
+gam.check(gam8)
+AIC(gam8)
+
+```
