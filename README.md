@@ -2,6 +2,7 @@
 
 
 [Perth Hospital ](https://github.com/BillHuynh/DataScienceProjects/tree/master/Projects/Perth%20Hospital)
+Obtained weather data from the NCDC to be used to model Emergency Demand. Dataset was cleaned/wrangled  API packages in R was used to model demand. Data was cleaned and APIs were used to source the data.
 
 
 [Exploratory Data Analysis of patients with risk of Heart Problems](https://github.com/BillHuynh/DataScienceProjects/tree/master/Projects/Heart%20Attack)
