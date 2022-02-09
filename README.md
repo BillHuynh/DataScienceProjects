@@ -2,7 +2,9 @@
 
 
 [Perth Hospital ](https://github.com/BillHuynh/DataScienceProjects/tree/master/Projects/Perth%20Hospital)
-Obtained weather data from the NCDC to be used to model Emergency Demand. Dataset was cleaned/wrangled  API packages in R was used to model demand. Data was cleaned and APIs were used to source the data.
+
+Obtained weather data from the NCDC to be used to model Emergency Demand. Dataset was cleaned/wrangled  API packages in R was used to model demand. Data was cleaned and APIs were used to source the data.1.	The final model will try and use variables(IV) to get the best fit for ED demands(DV) as it was suggested  that attendance has an effect on ED demands. We want to use the model to find meaningful relationships between weather variables and ED demands. Overcrowding is an increase in attendance at EDs, It is relevant because we can explore what affects attendance.
+
 
 
 [Exploratory Data Analysis of patients with risk of Heart Problems](https://github.com/BillHuynh/DataScienceProjects/tree/master/Projects/Heart%20Attack)
